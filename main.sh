@@ -8,6 +8,43 @@
 # EMAIL: john.sanabria@correounivalle.edu.co
 # DATE: Abril 4, 2017
 #
+# Inicializando variables globales
+#
+# ID: identificador de la hoja de calculo
+# SHEET: nombre de la hoja en particular que se desea acceder
+# COLUMN: Columna de la cual se revisara para traer los datos
+# LROW: Limite bajo del numero de fila
+# HROW: Limite alto del numero de fila
+#
+CONF_SHEET_FILE="sheet.conf"
+ID=$( grep ID ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+SHEET=$( grep SHEET ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+COL=$( grep COL ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+LROW=$( grep LROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+HROW=$( grep HROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+RESULTCLONE=$( grep RESULTCLONE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+RESULTCOMPILE=$( grep RESULTCOMPILE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+ESTUDIANTE_1=$( grep ESTUDIANTE_1 ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+ESTUDIANTE_2=$( grep ESTUDIANTE_2 ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+RESULT_1_A=$( grep RESULTEXECUTE_1_A ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+RESULT_1_B=$( grep RESULTEXECUTE_1_B ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+RESULT_2_A=$( grep RESULTEXECUTE_2_A ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+RESULT_2_B=$( grep RESULTEXECUTE_2_B ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+#
+# Archivos y directorios
+#
+temp_date=$(date +%s)
+result_file="/tmp/evaluation-results-${temp_date}.txt"
+error_file="/tmp/tmp-evalresults-${temp_date}.txt"
+REVIEWEDDIR=reviewed
+TESTDIR=testdir
+#
+# Valores de referencia
+#
+REFVALORARCHIVOS=5
+REFVALORBYTES=22243
+#
+# -=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-
 #
 # gitclone(): Esta funcion recibe un argumento y es el URL de un proyecto
 # en Github que, e.g. 
@@ -16,13 +53,6 @@
 # RETORNA el nombre del directorio donde quedaron los archivos descargados del 
 # repositorio
 #
-temp_date=$(date +%s)
-result_file="/tmp/evaluation-results-${temp_date}.txt"
-error_file="/tmp/tmp-evalresults-${temp_date}.txt"
-function Echo() {
-	echo "${1}" >> ${result_file}
-	echo "${1}"
-}
 function gitclone() {
 	git clone $1 &> ${error_file} 
 	if [ ! $? -eq 0 ]; then
@@ -36,14 +66,18 @@ function gitclone() {
 	fi
 }
 #
-# VARIABLES DE CONFIGURACION
-# Este archivo contiene la deficion de cuatro parametros
-# ID: identificador de la hoja de calculo
-# SHEET: nombre de la hoja en particular que se desea acceder
-# COLUMN: Columna de la cual se revisara para traer los datos
-# LROW: Limite bajo del numero de fila
-# HROW: Limite alto del numero de fila
-CONF_SHEET_FILE="sheet.conf"
+# Esta funcion recibe tres argumentos, un nombre de archivo, una 'expresion'
+# regular y un numero entero. La funcion busca en el archivo, dicha 'expresion'
+# y en esa linea la corta por el delimitador ' ' y extrae el campo indicado en
+# en el tercer argumento. 
+# 
+# Esta funcion se puede invocar como
+#
+# getValueWS output.txt Estudiante_1 2
+#
+function getValueWS() {
+	echo $(grep $2 $1 | cut -d ' ' -f ${3})
+}
 #
 # Esta funcion se encarga de compilar el codigo que se encuentra en el
 # directorio que se le pasa como argumento. Esta compilacion se hace a traves
@@ -53,6 +87,64 @@ function dockcompiling() {
 	echo "Compiling ${1}"
 	docker run --rm -ti -v $(pwd)/${1}:/source build-essential2 make io
 	docker run --rm -ti -v $(pwd)/${1}:/source build-essential2 make iofork
+}
+#
+# Esta funcion se encarga de valorar si la ejecucion arroja los valores de 
+# ejecucion esperados
+#
+# El primer argumento denota la fila (o grupo) que se esta evaluando. El 2do
+# argumento hace referencia al numero de archivos y el 3er argumento al 
+# numero de bytes.
+#
+function evaluarExe1() {
+	echo "evaluar 1"
+	echo "$1"
+	echo "$2"
+	echo "$3"
+	if [ "${2}" == "" ]; then
+		updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
+		updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
+	else 
+		if [ "${2}" == "${REFVALORARCHIVOS}" ]; then
+			updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 1
+		else
+			updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
+		fi
+		if [ "${3}" == "${REFVALORBYTES}" ]; then
+			updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 1
+		else
+			updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
+		fi
+	fi
+}
+#
+# Esta funcion se encarga de valorar si la ejecucion arroja los valores de 
+# ejecucion esperados
+#
+# El primer argumento denota la fila (o grupo) que se esta evaluando. El 2do
+# argumento hace referencia al numero de archivos y el 3er argumento al 
+# numero de bytes.
+#
+function evaluarExe2() {
+	echo "EVALUAR 2"
+	echo "$1"
+	echo "$2"
+	echo "$3"
+	if [ "${2}" == "" ]; then
+		updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
+		updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
+	else 
+		if [ "${2}" == "${REFVALORARCHIVOS}" ]; then
+			updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 1
+		else
+			updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
+		fi
+		if [ "${3}" == "${REFVALORBYTES}" ]; then
+			updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 1
+		else
+			updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
+		fi
+	fi
 }
 #
 # Esta funcion recibe como parametro un directorio y valida que los archivos
@@ -72,13 +164,8 @@ function testcompilation() {
 #
 function dockexecution() {
 	OUTPUTFILE="/tmp/output-${temp_date}.txt"
-	docker run --rm -ti -v $(pwd)/${1}:/source build-essential2 ./${2} > ${OUTPUTFILE}
-	output=$(grep Estudiante_1 ${OUTPUTFILE} | cut -d ' ' -f 2)
-	output="${output}|$(grep Estudiante_2 ${OUTPUTFILE} | cut -d ' ' -f 2)"
-	output="${output}|$(grep archivos ${OUTPUTFILE} | cut -d ' ' -f 3)"
-	output="${output}|$(grep bytes ${OUTPUTFILE} | cut -d ' ' -f 3)"
-	mv ${OUTPUTFILE} ${1}
-	echo ${output}
+	docker run --rm -ti -v $(pwd)/${1}:/source build-essential2 ./${2} ${3} > ${OUTPUTFILE} 2>&1
+	echo ${OUTPUTFILE}
 }
 #
 #
@@ -115,15 +202,6 @@ function evaluargrupo() {
 	#
 	# Ir a hoja calculo, recuperar los URLs desde Github de los proyectos
 	#
-	ID=$( grep ID ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	SHEET=$( grep SHEET ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	COL=$( grep COL ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	LROW=$( grep LROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	HROW=$( grep HROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	RESULTCLONE=$( grep RESULTCLONE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	RESULTCOMPILE=$( grep RESULTCOMPILE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	RESULTEXECUTE=$( grep RESULTEXECUTE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-	REVIEWEDDIR=$( grep REVIEWEDDIR ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
 	echo -n "Cargando datos de la hoja de calculo [${ID}] .."
 	GITURLS=$( python pygsheets_getcol.py ${ID} ${SHEET} ${COL} ${LROW} ${HROW} )
 	echo "."
@@ -134,7 +212,6 @@ function evaluargrupo() {
 		proydir=$( gitclone $i ) # Clone the given URL
 		if [ "${proydir:0:5}" == "ERROR" ]; then
 			echo "Error retrieving ${i}... skipping"
-			#python ./pygsheets_updatecell.py ${ID} ${SHEET} ${RESULTCLONE}${count} "Error retrieving ${i}"
 			updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "Error retrieving ${i}"
 			continue
 		fi
@@ -150,13 +227,29 @@ function evaluargrupo() {
 			echo "Error on ${proydir}"
 			continue
 		fi
-		# preparing dir
-		cp README.md ${proydir}
-		# executing
-		result=$(dockexecution ${proydir} io)
-		echo ${result}
-		result=$(dockexecution ${proydir} iofork)
-		echo ${result}
+		# preparando directorio de pruebas
+		cp -R ${TESTDIR} ${proydir}
+		# ejecutando el primer programa
+		result=$(dockexecution ${proydir} io ${TESTDIR})
+		# Copiar el resultado de la ejecucion en el directorio del
+		# proyecto bajo evaluacion
+		cp ${result} ${proydir} 
+		estudiante=$(getValueWS ${result} Estudiante_1 2)
+		updatecell ${ID} ${SHEET} "${ESTUDIANTE_1}${count}" ${estudiante}
+		estudiante=$(getValueWS ${result} Estudiante_2 2)
+		updatecell ${ID} ${SHEET} "${ESTUDIANTE_2}${count}" ${estudiante}
+		valueBytes=$(getValueWS ${result} bytes 3)
+		valueArchivos=$(getValueWS ${result} archivos 3)
+		evaluarExe1 ${count} ${valueArchivos} ${valueBytes} 
+		# ejecutando el segundo programa
+		result=$(dockexecution ${proydir} iofork ${TESTDIR})
+		echo "----" >> ${proydir}/$(basename ${result})
+		cat ${result} >> ${proydir}/$(basename ${result})
+		valueBytes=$(getValueWS ${result} bytes 3)
+		valueArchivos=$(getValueWS ${result} archivos 3)
+		evaluarExe2 ${count} ${valueArchivos} ${valueBytes} 
+		rm ${result}
+		rm -rf ${proydir}/${TESTDIR}
 		echo "Moving dir [${proydir}] to [${REVIEWEDDIR}]" 
 		moverdir ${proydir} ${REVIEWEDDIR}
 		count=$(( count + 1 ))
