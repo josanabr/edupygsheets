@@ -45,6 +45,65 @@ function gitclone() {
 # HROW: Limite alto del numero de fila
 CONF_SHEET_FILE="sheet.conf"
 #
+# Esta funcion se encarga de compilar el codigo que se encuentra en el
+# directorio que se le pasa como argumento. Esta compilacion se hace a traves
+# de un contenedor en Docker
+#
+function dockcompiling() {
+	echo "Compiling ${1}"
+	docker run --rm -ti -v $(pwd)/${1}:/source build-essential2 make io
+	docker run --rm -ti -v $(pwd)/${1}:/source build-essential2 make iofork
+}
+#
+# Esta funcion recibe como parametro un directorio y valida que los archivos
+# que se debieron crear en la compilacion, aparezcan (io e iofork)
+#
+function testcompilation() {
+	result=""
+	if [ -f ${1}/io -a -f ${1}/iofork ]; then
+		result="OK"
+	else
+		result="ERROR compiling ${1}"
+	fi
+	echo ${result}
+}
+#
+#
+#
+function dockexecution() {
+	OUTPUTFILE="/tmp/output-${temp_date}.txt"
+	docker run --rm -ti -v $(pwd)/${1}:/source build-essential2 ./${2} > ${OUTPUTFILE}
+	output=$(grep Estudiante_1 ${OUTPUTFILE} | cut -d ' ' -f 2)
+	output="${output}|$(grep Estudiante_2 ${OUTPUTFILE} | cut -d ' ' -f 2)"
+	output="${output}|$(grep archivos ${OUTPUTFILE} | cut -d ' ' -f 3)"
+	output="${output}|$(grep bytes ${OUTPUTFILE} | cut -d ' ' -f 3)"
+	mv ${OUTPUTFILE} ${1}
+	echo ${output}
+}
+#
+#
+#
+#function checkoutput() {
+#	
+#}
+#
+# Este metodo se encarga de llamar un script en Python que actualiza datos en
+# una hoja de calculo en Google Drive
+#
+function updatecell() {
+	python ./pygsheets_updatecell.py ${1} ${2} ${3} ${4}
+}
+#
+#
+#
+function moverdir() {
+	if [ ! -d ${2} ]; then
+		mkdir ${2}
+	fi
+	mv ${1} ${2}
+	echo $?
+}
+#
 # evaluargrupo(): carga los datos de una hoja de calculo y se encarga de evaluar
 # los distintos repositorios con los valores esperados
 #
@@ -62,8 +121,10 @@ function evaluargrupo() {
 	LROW=$( grep LROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
 	HROW=$( grep HROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
 	RESULTCLONE=$( grep RESULTCLONE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+	RESULTCOMPILE=$( grep RESULTCOMPILE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+	RESULTEXECUTE=$( grep RESULTEXECUTE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+	REVIEWEDDIR=$( grep REVIEWEDDIR ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
 	echo -n "Cargando datos de la hoja de calculo [${ID}] .."
-	echo " ${COL} ${LROW} ${HROW}"
 	GITURLS=$( python pygsheets_getcol.py ${ID} ${SHEET} ${COL} ${LROW} ${HROW} )
 	echo "."
 	# Traverse through every Github URL
@@ -73,24 +134,38 @@ function evaluargrupo() {
 		proydir=$( gitclone $i ) # Clone the given URL
 		if [ "${proydir:0:5}" == "ERROR" ]; then
 			echo "Error retrieving ${i}... skipping"
-			python ./pygsheets_updatecell.py ${ID} ${SHEET} ${RESULTCLONE}${count} "Error retrieving ${i}"
-		else
-			echo "Evaluating ${proydir}"
-			python ./pygsheets_updatecell.py ${ID} ${SHEET} ${RESULTCLONE}${count} "OK"
-			echo "Erasing dir [${proydir}]" 
-			rm -rf ${proydir}
+			#python ./pygsheets_updatecell.py ${ID} ${SHEET} ${RESULTCLONE}${count} "Error retrieving ${i}"
+			updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "Error retrieving ${i}"
+			continue
 		fi
+
+		echo "Evaluating ${proydir}"
+		# cloning OK
+		updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "OK"
+		# compiling
+		dockcompiling ${proydir} 
+		result=$( testcompilation ${proydir} )
+		updatecell ${ID} ${SHEET} "${RESULTCOMPILE}${count}" ${result} 
+		if [ "${result:0:5}" == "ERROR" ]; then
+			echo "Error on ${proydir}"
+			continue
+		fi
+		# preparing dir
+		cp README.md ${proydir}
+		# executing
+		result=$(dockexecution ${proydir} io)
+		echo ${result}
+		result=$(dockexecution ${proydir} iofork)
+		echo ${result}
+		echo "Moving dir [${proydir}] to [${REVIEWEDDIR}]" 
+		moverdir ${proydir} ${REVIEWEDDIR}
 		count=$(( count + 1 ))
 	done
 }
 #
-DIRPRUEBAS="pruebas"
-for i in $( ls ${DIRPRUEBAS}/*); do
-	DIR=$( grep DIRECTORY ${i} | cut -d ' ' -f 2 )
-	RESULT=$( grep RESULT ${i} | cut -d ' ' -f 2 )
-done 
+#
+#
 evaluargrupo ${DIR} ${RESULT}
-#gitclone https://github.com/josanabr/OS.git
 echo "-=*=-=*=-=*=-=*=-=*=-"
 echo "Error file ${error_file}"
 echo "Results ${result_file}"
