@@ -44,6 +44,19 @@ TESTDIR=testdir
 REFVALORARCHIVOS=5
 REFVALORBYTES=22243
 #
+#
+#
+function checkGitRepo() {
+	usuario=$(./processGitURL.py -u ${1})
+	repo=$(./processGitURL.py -r ${1} | cut -d '.' -f 1)
+	salida=$(curl https://api.github.com/repos/${usuario}/${repo})
+	notfound=$(echo ${salida} | grep "Not Found")
+	if [ "${notfound}" == "" ]; then
+		echo "OK"
+	else
+		echo "ERROR repo does not exist"
+	fi
+}
 # -=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-
 #
 # gitclone(): Esta funcion recibe un argumento y es el URL de un proyecto
@@ -97,20 +110,21 @@ function dockcompiling() {
 # numero de bytes.
 #
 function evaluarExe1() {
-	echo "evaluar 1"
-	echo "$1"
-	echo "$2"
-	echo "$3"
+	echo "Evaluando ejecucion 1"
+	varchivos=${2::-1}
+	vbytes=${3::-1}
+	echo "	Valores de referencia ${REFVALORARCHIVOS} ${REFVALORBYTES}."
+	echo "	Valores obtenidos ${varchivos} ${vbytes}."
 	if [ "${2}" == "" ]; then
 		updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
 		updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
 	else 
-		if [ "${2}" == "${REFVALORARCHIVOS}" ]; then
+		if [ "$varchivos" == "$REFVALORARCHIVOS" ]; then
 			updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 1
 		else
 			updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
 		fi
-		if [ "${3}" == "${REFVALORBYTES}" ]; then
+		if [ "$vbytes" == "$REFVALORBYTES" ]; then
 			updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 1
 		else
 			updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
@@ -126,20 +140,21 @@ function evaluarExe1() {
 # numero de bytes.
 #
 function evaluarExe2() {
-	echo "EVALUAR 2"
-	echo "$1"
-	echo "$2"
-	echo "$3"
+	echo "Evaluando ejecucion 2"
+	varchivos=${2::-1}
+	vbytes=${3::-1}
+	echo "	Valores de referencia ${REFVALORARCHIVOS} ${REFVALORBYTES}."
+	echo "	Valores obtenidos ${varchivos} ${vbytes}."
 	if [ "${2}" == "" ]; then
 		updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
 		updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
 	else 
-		if [ "${2}" == "${REFVALORARCHIVOS}" ]; then
+		if [ "${varchivos}" == "${REFVALORARCHIVOS}" ]; then
 			updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 1
 		else
 			updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
 		fi
-		if [ "${3}" == "${REFVALORBYTES}" ]; then
+		if [ "${vbytes}" == "${REFVALORBYTES}" ]; then
 			updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 1
 		else
 			updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
@@ -207,15 +222,24 @@ function evaluargrupo() {
 	echo "."
 	# Traverse through every Github URL
 	count=$( echo ${LROW} )
+	echo "-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-"
 	for i in $( echo $GITURLS ); do
 		echo "Github URL: ${i}"
+		check=$(checkGitRepo ${i})
+		if [ "${check:0:5}" == "ERROR" ]; then
+			echo "Repo [${i}] does not exist"
+			updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "ERROR repo ${i}"
+			count=$(( count + 1 ))
+			continue
+			
+		fi
 		proydir=$( gitclone $i ) # Clone the given URL
 		if [ "${proydir:0:5}" == "ERROR" ]; then
 			echo "Error retrieving ${i}... skipping"
 			updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "Error retrieving ${i}"
+			count=$(( count + 1 ))
 			continue
 		fi
-
 		echo "Evaluating ${proydir}"
 		# cloning OK
 		updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "OK"
@@ -224,27 +248,34 @@ function evaluargrupo() {
 		result=$( testcompilation ${proydir} )
 		updatecell ${ID} ${SHEET} "${RESULTCOMPILE}${count}" ${result} 
 		if [ "${result:0:5}" == "ERROR" ]; then
-			echo "Error on ${proydir}"
+			count=$(( count + 1 ))
+			echo "Error compiling ${proydir}"
+			moverdir ${proydir} ${REVIEWEDDIR}
 			continue
 		fi
 		# preparando directorio de pruebas
 		cp -R ${TESTDIR} ${proydir}
 		# ejecutando el primer programa
+		# 'result' contiene la salida de ejecutar 'io'
 		result=$(dockexecution ${proydir} io ${TESTDIR})
 		# Copiar el resultado de la ejecucion en el directorio del
 		# proyecto bajo evaluacion
 		cp ${result} ${proydir} 
+		# Guardando codigo de los estudiantes
 		estudiante=$(getValueWS ${result} Estudiante_1 2)
-		updatecell ${ID} ${SHEET} "${ESTUDIANTE_1}${count}" ${estudiante}
+		updatecell ${ID} ${SHEET} "${ESTUDIANTE_1}${count}" "${estudiante}"
 		estudiante=$(getValueWS ${result} Estudiante_2 2)
-		updatecell ${ID} ${SHEET} "${ESTUDIANTE_2}${count}" ${estudiante}
+		updatecell ${ID} ${SHEET} "${ESTUDIANTE_2}${count}" "${estudiante}"
+		# Obteniendo valores de la primera ejecucion
 		valueBytes=$(getValueWS ${result} bytes 3)
 		valueArchivos=$(getValueWS ${result} archivos 3)
 		evaluarExe1 ${count} ${valueArchivos} ${valueBytes} 
 		# ejecutando el segundo programa
+		# 'result' contiene la salida de ejecutar 'iofork'
 		result=$(dockexecution ${proydir} iofork ${TESTDIR})
 		echo "----" >> ${proydir}/$(basename ${result})
 		cat ${result} >> ${proydir}/$(basename ${result})
+		# Obteniendo valores de la segunda ejecucion
 		valueBytes=$(getValueWS ${result} bytes 3)
 		valueArchivos=$(getValueWS ${result} archivos 3)
 		evaluarExe2 ${count} ${valueArchivos} ${valueBytes} 
@@ -253,12 +284,12 @@ function evaluargrupo() {
 		echo "Moving dir [${proydir}] to [${REVIEWEDDIR}]" 
 		moverdir ${proydir} ${REVIEWEDDIR}
 		count=$(( count + 1 ))
+		echo "-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-=*=-"
 	done
 }
 #
 #
 #
 evaluargrupo ${DIR} ${RESULT}
-echo "-=*=-=*=-=*=-=*=-=*=-"
 echo "Error file ${error_file}"
 echo "Results ${result_file}"
