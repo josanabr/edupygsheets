@@ -1,3 +1,4 @@
+- Store a range of values in a cell
 
 Tests
 -----
