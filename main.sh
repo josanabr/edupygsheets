@@ -46,6 +46,11 @@ REFVALORBYTES=22243
 #
 #
 #
+rango=""
+rangovalores=""
+#
+#
+#
 function checkGitRepo() {
 	usuario=$(./processGitURL.py -u ${1})
 	repo=$(./processGitURL.py -r ${1} | cut -d '.' -f 1)
@@ -116,18 +121,23 @@ function evaluarExe1() {
 	echo "	Valores de referencia ${REFVALORARCHIVOS} ${REFVALORBYTES}."
 	echo "	Valores obtenidos ${varchivos} ${vbytes}."
 	if [ "${2}" == "" ]; then
-		updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
-		updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
+		#updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
+		#updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
+		rangovalores="${rangovalores} 0 0"
 	else 
 		if [ "$varchivos" == "$REFVALORARCHIVOS" ]; then
-			updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 1
+			#updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 1
+			rangovalores="${rangovalores} 1"
 		else
-			updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
+			#updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
+			rangovalores="${rangovalores} 0"
 		fi
 		if [ "$vbytes" == "$REFVALORBYTES" ]; then
-			updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 1
+			#updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 1
+			rangovalores="${rangovalores} 1"
 		else
-			updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
+			#updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
+			rangovalores="${rangovalores} 0"
 		fi
 	fi
 }
@@ -146,18 +156,23 @@ function evaluarExe2() {
 	echo "	Valores de referencia ${REFVALORARCHIVOS} ${REFVALORBYTES}."
 	echo "	Valores obtenidos ${varchivos} ${vbytes}."
 	if [ "${2}" == "" ]; then
-		updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
-		updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
+		#updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
+		#updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
+		rangovalores="${rangovalores} 0 0"
 	else 
 		if [ "${varchivos}" == "${REFVALORARCHIVOS}" ]; then
-			updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 1
+			#updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 1
+			rangovalores="${rangovalores} 1"
 		else
-			updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
+			#updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
+			rangovalores="${rangovalores} 0"
 		fi
 		if [ "${vbytes}" == "${REFVALORBYTES}" ]; then
-			updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 1
+			#updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 1
+			rangovalores="${rangovalores} 1"
 		else
-			updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
+			#updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
+			rangovalores="${rangovalores} 0"
 		fi
 	fi
 }
@@ -194,6 +209,15 @@ function dockexecution() {
 #
 function updatecell() {
 	python ./pygsheets_updatecell.py ${1} ${2} ${3} ${4}
+}
+#
+# Este metodo se encarga de llamar un script en Python que actualiza un rango de
+#  datos en una hoja de calculo en Google Drive
+#
+function updatecells() {
+	echo "${2}"
+	echo "${4}"
+	python ./pygsheets_updatecells.py ${1} ${2} ${3} "${4}"
 }
 #
 #
@@ -240,19 +264,25 @@ function evaluargrupo() {
 			count=$(( count + 1 ))
 			continue
 		fi
+		rangovalores="OK"
+		rango="${RESULTCLONE}${count}:"
 		echo "Evaluating ${proydir}"
 		# cloning OK
-		updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "OK"
+		#updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "OK"
 		# compiling
 		dockcompiling ${proydir} 
 		result=$( testcompilation ${proydir} )
-		updatecell ${ID} ${SHEET} "${RESULTCOMPILE}${count}" ${result} 
+		#updatecell ${ID} ${SHEET} "${RESULTCOMPILE}${count}" ${result} 
 		if [ "${result:0:5}" == "ERROR" ]; then
-			count=$(( count + 1 ))
+			rangovalores="${rangovalores} ERROR"
+			rango="${rango}${RESULTCOMPILE}${count}"
+			updatecells ${ID} ${SHEET} ${rango} "${rangovalores}"
 			echo "Error compiling ${proydir}"
 			moverdir ${proydir} ${REVIEWEDDIR}
+			count=$(( count + 1 ))
 			continue
 		fi
+		rangovalores="${rangovalores} OK"
 		# preparando directorio de pruebas
 		cp -R ${TESTDIR} ${proydir}
 		# ejecutando el primer programa
@@ -279,6 +309,7 @@ function evaluargrupo() {
 		valueBytes=$(getValueWS ${result} bytes 3)
 		valueArchivos=$(getValueWS ${result} archivos 3)
 		evaluarExe2 ${count} ${valueArchivos} ${valueBytes} 
+		updatecells ${ID} ${SHEET} "${rango}${RESULT_2_B}${count}" "${rangovalores}"
 		rm ${result}
 		rm -rf ${proydir}/${TESTDIR}
 		echo "Moving dir [${proydir}] to [${REVIEWEDDIR}]" 
