@@ -211,10 +211,19 @@ function updatecells() {
 #
 #
 function moverdir() {
+	echo -n "Moviendo directorio "
 	if [ ! -d ${2} ]; then
 		mkdir ${2}
 	fi
-	mv ${1} ${2}
+	if [ -d ${2}/${1} ]; then
+		fechaactual=$(date +%s)
+		dest="${2}/${1}-${fechaactual}"
+		echo "desde [${1}] hasta [${dest}]"
+		mv ${1} ${dest}
+	else
+		echo "desde [${1}] hasta [${2}]"
+		mv ${1} ${2}
+	fi
 	echo $?
 }
 #
