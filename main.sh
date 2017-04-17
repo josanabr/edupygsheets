@@ -16,20 +16,20 @@
 # LROW: Limite bajo del numero de fila
 # HROW: Limite alto del numero de fila
 #
-CONF_SHEET_FILE="sheet.conf"
-ID=$( grep ID ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-SHEET=$( grep SHEET ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-COL=$( grep COL ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-LROW=$( grep LROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-HROW=$( grep HROW ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-RESULTCLONE=$( grep RESULTCLONE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-RESULTCOMPILE=$( grep RESULTCOMPILE ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-ESTUDIANTE_1=$( grep ESTUDIANTE_1 ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-ESTUDIANTE_2=$( grep ESTUDIANTE_2 ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-RESULT_1_A=$( grep RESULTEXECUTE_1_A ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-RESULT_1_B=$( grep RESULTEXECUTE_1_B ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-RESULT_2_A=$( grep RESULTEXECUTE_2_A ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
-RESULT_2_B=$( grep RESULTEXECUTE_2_B ${CONF_SHEET_FILE} | cut -d ' ' -f 2 )
+CONF_SHEET_FILE="sheet.json"
+ID=$( ./jsonValue.py ${CONF_SHEET_FILE} id )
+SHEET=$( ./jsonValue.py ${CONF_SHEET_FILE} sheet )
+COL=$( ./jsonValue.py ${CONF_SHEET_FILE} columns repo )
+LROW=$( ./jsonValue.py ${CONF_SHEET_FILE} rows low )
+HROW=$( ./jsonValue.py ${CONF_SHEET_FILE} rows high )
+RESULTCLONE=$( ./jsonValue.py ${CONF_SHEET_FILE} columns clone )
+RESULTCOMPILE=$( ./jsonValue.py ${CONF_SHEET_FILE} columns compile )
+ESTUDIANTE_1=$( ./jsonValue.py ${CONF_SHEET_FILE} columns estudiante_1 )
+ESTUDIANTE_2=$( ./jsonValue.py ${CONF_SHEET_FILE} columns estudiante_2 )
+RESULT_1_A=$( ./jsonValue.py ${CONF_SHEET_FILE} columns execute_1_a )
+RESULT_1_B=$( ./jsonValue.py ${CONF_SHEET_FILE} columns execute_1_b )
+RESULT_2_A=$( ./jsonValue.py ${CONF_SHEET_FILE} columns execute_2_a )
+RESULT_2_B=$( ./jsonValue.py ${CONF_SHEET_FILE} columns execute_2_b )
 #
 # Archivos y directorios
 #
@@ -121,22 +121,16 @@ function evaluarExe1() {
 	echo "	Valores de referencia ${REFVALORARCHIVOS} ${REFVALORBYTES}."
 	echo "	Valores obtenidos ${varchivos} ${vbytes}."
 	if [ "${2}" == "" ]; then
-		#updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
-		#updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
 		rangovalores="${rangovalores} 0 0"
 	else 
 		if [ "$varchivos" == "$REFVALORARCHIVOS" ]; then
-			#updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 1
 			rangovalores="${rangovalores} 1"
 		else
-			#updatecell ${ID} ${SHEET} "${RESULT_1_A}${1}" 0
 			rangovalores="${rangovalores} 0"
 		fi
 		if [ "$vbytes" == "$REFVALORBYTES" ]; then
-			#updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 1
 			rangovalores="${rangovalores} 1"
 		else
-			#updatecell ${ID} ${SHEET} "${RESULT_1_B}${1}" 0
 			rangovalores="${rangovalores} 0"
 		fi
 	fi
@@ -156,22 +150,16 @@ function evaluarExe2() {
 	echo "	Valores de referencia ${REFVALORARCHIVOS} ${REFVALORBYTES}."
 	echo "	Valores obtenidos ${varchivos} ${vbytes}."
 	if [ "${2}" == "" ]; then
-		#updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
-		#updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
 		rangovalores="${rangovalores} 0 0"
 	else 
 		if [ "${varchivos}" == "${REFVALORARCHIVOS}" ]; then
-			#updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 1
 			rangovalores="${rangovalores} 1"
 		else
-			#updatecell ${ID} ${SHEET} "${RESULT_2_A}${1}" 0
 			rangovalores="${rangovalores} 0"
 		fi
 		if [ "${vbytes}" == "${REFVALORBYTES}" ]; then
-			#updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 1
 			rangovalores="${rangovalores} 1"
 		else
-			#updatecell ${ID} ${SHEET} "${RESULT_2_B}${1}" 0
 			rangovalores="${rangovalores} 0"
 		fi
 	fi
@@ -268,11 +256,10 @@ function evaluargrupo() {
 		rango="${RESULTCLONE}${count}:"
 		echo "Evaluating ${proydir}"
 		# cloning OK
-		#updatecell ${ID} ${SHEET} "${RESULTCLONE}${count}" "OK"
+		echo "Cloning OK"
 		# compiling
 		dockcompiling ${proydir} 
 		result=$( testcompilation ${proydir} )
-		#updatecell ${ID} ${SHEET} "${RESULTCOMPILE}${count}" ${result} 
 		if [ "${result:0:5}" == "ERROR" ]; then
 			rangovalores="${rangovalores} ERROR"
 			rango="${rango}${RESULTCOMPILE}${count}"
@@ -282,6 +269,7 @@ function evaluargrupo() {
 			count=$(( count + 1 ))
 			continue
 		fi
+		echo "Compiling OK"
 		rangovalores="${rangovalores} OK"
 		# preparando directorio de pruebas
 		cp -R ${TESTDIR} ${proydir}

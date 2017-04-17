@@ -1,0 +1,19 @@
+{
+	"id": "1udjSP39kTrNnxAO7ZUWQrSRLuQTZG6XqPorKRJCpIus",
+	"sheet": "repos",
+	"columns": {
+			"repo": "A",
+			"estudiante_1": "C",
+			"estudiante_2": "D",
+			"clone": "E",
+			"compile": "F",
+			"execute_1_a": "G",
+			"execute_1_b": "H",
+			"execute_2_a": "I",
+			"execute_2_b": "J"
+		},
+	"rows": {
+			"low": "2",
+			"high": "4"
+		}
+}
