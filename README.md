@@ -32,10 +32,12 @@ en Google Drive.
 
 - Necesita crear un archivo llamado `config.json` el cual tiene la siguiente informacion
 
+```
 	{
 		"user": "gitHubUser",
 		"token": "tokenvalue"
 	}
+```
 
 Para obtener el valor `tokenvalue` debe visitar este enlace en [GitHub](https://github.com/settings/tokens/new). 
 Allí usted podra crear un token que le perimitirá tener un mayor número de accesos al API de GitHub.
