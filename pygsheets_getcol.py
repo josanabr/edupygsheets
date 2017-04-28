@@ -33,4 +33,6 @@ wks = sh.worksheet_by_title(str(sys.argv[2]))
 for i in range(int(sys.argv[4]),int(sys.argv[5]) + 1):
 	xycell = str(sys.argv[3]) + str(i)
 	cell = wks.cell(xycell)
+	if cell.value == "":
+		cell.value="_"
 	print cell.value + "\n"
