@@ -14,14 +14,16 @@
 import json
 import sys
 
-if len(sys.argv) < 3 or len(sys.argv) > 4:
+if len(sys.argv) < 3 or len(sys.argv) > 5:
 	print "Se deben proveer dos o tres argumentos a este script"
-	print "	%s <file.json> <key1> [<key2>]"%(sys.argv[0])
+	print "	%s <file.json> <key1> [<key2>] [<key3>]"%(sys.argv[0])
 	sys.exit(-1)
 filename=sys.argv[1]
 with open(filename) as data_file:
 	data = json.load(data_file)
-if len(sys.argv) == 4:
+if len(sys.argv) == 5:
+	print data[sys.argv[2]][sys.argv[3]][sys.argv[4]]
+elif len(sys.argv) == 4:
 	print data[sys.argv[2]][sys.argv[3]]
 else:
 	print data[sys.argv[2]]
