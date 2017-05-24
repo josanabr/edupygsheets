@@ -20,14 +20,19 @@ def getjsonvalue(args):
 def unicode2str(x):
 	return unicodedata.normalize('NFKD',x).encode('ascii','ignore')
 
-def getlist(sheet, low, high):
+def getlist(sheet, low, high, webtool="Kahoot"):
 	low = unicode2str(low)
 	high = unicode2str(high)
 	values = sheet.get_values(low, high, returnas='range')
 	result = []
 	for i in values:
 		value = ''.join(str(e) for e in i)
-		result.append(value.split("'")[1])
+		if (webtool == "EDpuzzle"):
+			value = value.split("'")[1] #obtengo nombre completo
+			value = value.split(",")[0] #accedo solo al apellido
+			result.append(value)
+		else:
+			result.append(value.split("'")[1]) #obtengo solo el codigo
 	return result
 
 def process_stu_id(stu_list):
@@ -94,22 +99,24 @@ def validate(s_id, s_grade, d_id, d_grade, n):
 	return result
 
 def main():
+	jsonfile = "kahoot.json"
 	gc = pygsheets.authorize()
 	# Tomar los datos de la pagina fuente, id, columna donde esta el codigo
-	sourceid = getjsonvalue(["kahoot.json", "source", "id"])
+	webtool = getjsonvalue([jsonfile, "web_tool"])
+	sourceid = getjsonvalue([jsonfile, "source", "id"])
 	s_sheet = gc.open_by_key(sourceid)
-	s_sheet_name = getjsonvalue(["kahoot.json", "source", "sheet_name"])
+	s_sheet_name = getjsonvalue([jsonfile, "source", "sheet_name"])
 	s_wks = s_sheet.worksheet_by_title(s_sheet_name)
 	# Obteniendo la lista de estudiantes
-	s_low_st_range =  getjsonvalue(["kahoot.json", "source", "studentid", "start_range"])
-	s_high_st_range =  getjsonvalue(["kahoot.json", "source", "studentid", "end_range"])
-	s_stud_id_list = getlist(s_wks, s_low_st_range, s_high_st_range)
-	#print s_stud_id_list
-	s_stud_id_list = process_stu_id(s_stud_id_list)
+	s_low_st_range =  getjsonvalue([jsonfile, "source", "studentid", "start_range"])
+	s_high_st_range =  getjsonvalue([jsonfile, "source", "studentid", "end_range"])
+	s_stud_id_list = getlist(s_wks, s_low_st_range, s_high_st_range,webtool)
+	if webtool == "Kahoot":
+		s_stud_id_list = process_stu_id(s_stud_id_list)
 	#print s_stud_id_list
 	# Obteniendo las notas de los estudiantes
-	s_low_gr_range =  getjsonvalue(["kahoot.json", "source", "grade", "start_range"])
-	s_high_gr_range =  getjsonvalue(["kahoot.json", "source", "grade", "end_range"])
+	s_low_gr_range =  getjsonvalue([jsonfile, "source", "grade", "start_range"])
+	s_high_gr_range =  getjsonvalue([jsonfile, "source", "grade", "end_range"])
 	s_stud_grade_list = getlist(s_wks, s_low_gr_range, s_high_gr_range)
 	#print s_stud_grade_list
 	if len(s_stud_id_list) != len(s_stud_grade_list):
@@ -117,23 +124,22 @@ def main():
 	#
 	# Tomar los datos de la pagina destino
 	#
-	destid = getjsonvalue(["kahoot.json", "destination", "id"])
+	destid = getjsonvalue([jsonfile, "destination", "id"])
 	d_sheet = gc.open_by_key(destid)
-	d_sheet_name = getjsonvalue(["kahoot.json", "destination", "sheet_name"])
+	d_sheet_name = getjsonvalue([jsonfile, "destination", "sheet_name"])
 	d_wks = d_sheet.worksheet_by_title(d_sheet_name)
 	## Obteniendo la lista de estudiantes
-	d_low_st_range =  getjsonvalue(["kahoot.json", "destination", "studentid", "start_range"])
-	d_high_st_range =  getjsonvalue(["kahoot.json", "destination", "studentid", "end_range"])
+	d_low_st_range =  getjsonvalue([jsonfile, "destination", "studentid", "start_range"])
+	d_high_st_range =  getjsonvalue([jsonfile, "destination", "studentid", "end_range"])
 	d_stud_id_list = getlist(d_wks, d_low_st_range, d_high_st_range)
 	if (len(s_stud_id_list) != len(d_stud_id_list)):
 		print "[WARN] longitud listas estudiantes origen (%d) y destino (%d) NO COINCIDEN"%(len(s_stud_id_list), len(d_stud_id_list))
 	d_stud_grade_list = gen_list_grades(s_stud_id_list, s_stud_grade_list, d_stud_id_list) 
-	d_column_gr =  getjsonvalue(["kahoot.json", "destination", "grade", "column"])
-	d_low_row_gr =  getjsonvalue(["kahoot.json", "destination", "grade", "low_row"])
+	d_column_gr =  getjsonvalue([jsonfile, "destination", "grade", "column"])
+	d_low_row_gr =  getjsonvalue([jsonfile, "destination", "grade", "low_row"])
 	value = validate(s_stud_id_list, s_stud_grade_list, d_stud_id_list, d_stud_grade_list, int(len(s_stud_id_list)*.7))
 	if value != 0:
-		print "Hubo %d errores en el paso de notas"%(value)
-		return 
+		print "[ERR] Hubo %d errores en el paso de notas"%(value)
 	k = int(d_low_row_gr)
 	d_column_gr = unicode2str(d_column_gr)
 	for i in d_stud_grade_list:
