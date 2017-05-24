@@ -23,6 +23,18 @@ Este repositorio consiste de los siguienes scripts:
 `sheet.conf` y descarga la lista de repositorios que se van a evaluar.
 * `pygsheets_*.py` scripts en Python que se encargan de acceder a documentos
 en Google Drive. 
+* `copygrades.py` Este script en Python permite copiar la columna de una hoja
+de calculo en otra hoja de calculo. Es usada para copiar, por ejemplo, los 
+resultados arrojados por Kahoot o EDpuzzle a otra hoja de calculo en Google
+Drive. Se asume que tanto las hojas de calculo fuente como destino estan en 
+Google Drive. En un archivo de configuracion en formato json se especifica la
+columna que contiene los identificadores de estudiantes, sus respectivas notas
+y la hoja de calculo destino, con la columna, que contiene los identificadores 
+de los estudiantes y la columna donde se almacenaran las notas.
+* `convertunicode2string.py` Este script en Python permite convertir las celdas
+de una columna de formato Unicode a cadena. En un archivo de configuracion en
+formato json se especifica la hoja de calculo y el rango de celdas en dicha 
+hoja de calculo a la que se le va a hacer el proceso de transformacion.
 
 ---
 
